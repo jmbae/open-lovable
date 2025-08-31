@@ -1,0 +1,40 @@
+class {{widget_name}} extends StatefulWidget {
+  {{#constructor_params}}
+  final {{type}} {{name}};
+  {{/constructor_params}}
+  
+  const {{widget_name}}({
+    super.key,
+    {{#constructor_params}}
+    required this.{{name}},
+    {{/constructor_params}}
+  });
+
+  @override
+  State<{{widget_name}}> createState() => _{{widget_name}}State();
+}
+
+class _{{widget_name}}State extends State<{{widget_name}}> {
+  {{#state_variables}}
+  {{type}} {{name}}{{#default_value}} = {{default_value}}{{/default_value}};
+  {{/state_variables}}
+
+  {{#lifecycle_methods}}
+  @override
+  void {{method_name}}() {
+    {{#is_super_call}}super.{{method_name}}();{{/is_super_call}}
+    {{method_body}}
+  }
+  {{/lifecycle_methods}}
+
+  @override
+  Widget build(BuildContext context) {
+    return {{widget_body}};
+  }
+  
+  {{#custom_methods}}
+  {{method_signature}} {
+    {{method_body}}
+  }
+  {{/custom_methods}}
+}

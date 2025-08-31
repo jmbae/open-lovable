@@ -1,0 +1,66 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const {{app_name}}());
+}
+
+class {{app_name}} extends StatelessWidget {
+  const {{app_name}}({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: '{{app_title}}',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: {{primary_color}}),
+      ),
+      home: const {{home_widget}}(),
+    );
+  }
+}
+
+class {{home_widget}} extends StatefulWidget {
+  const {{home_widget}}({super.key});
+
+  @override
+  State<{{home_widget}}> createState() => _{{home_widget}}State();
+}
+
+class _{{home_widget}}State extends State<{{home_widget}}> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('{{app_title}}'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      body: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Welcome to Flutter!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Start building your amazing app',
+              style: TextStyle(fontSize: 16),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Hello Flutter!')),
+          );
+        },
+        tooltip: 'Show Message',
+        child: const Icon(Icons.message),
+      ),
+    );
+  }
+}

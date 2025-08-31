@@ -1,0 +1,47 @@
+name: {{project_name}}
+description: {{project_description}}
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  material_color_utilities: ^0.8.0
+{{#dependencies}}
+  {{name}}: {{version}}
+{{/dependencies}}
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+{{#dev_dependencies}}
+  {{name}}: {{version}}
+{{/dev_dependencies}}
+
+flutter:
+  uses-material-design: true
+  
+  {{#has_assets}}
+  assets:
+  {{#assets}}
+    - {{path}}
+  {{/assets}}
+  {{/has_assets}}
+  
+  {{#has_fonts}}
+  fonts:
+  {{#fonts}}
+    - family: {{family}}
+      fonts:
+      {{#files}}
+        - asset: {{path}}
+          {{#weight}}weight: {{weight}}{{/weight}}
+      {{/files}}
+  {{/fonts}}
+  {{/has_fonts}}

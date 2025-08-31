@@ -498,7 +498,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           response: code,
           isEdit: isEdit,
           packages: pendingPackages,
-          sandboxId: sandboxData?.sandboxId // Pass the sandbox ID to ensure proper connection
+          sandboxId: sandboxData?.sandboxId, // Pass the sandbox ID to ensure proper connection
+          projectType: currentProjectType
         })
       });
       
@@ -1561,7 +1562,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           prompt: message,
           model: aiModel,
           context: fullContext,
-          isEdit: conversationContext.appliedCode.length > 0
+          isEdit: conversationContext.appliedCode.length > 0,
+          projectType: currentProjectType
         })
       });
       
@@ -2997,7 +2999,11 @@ Focus on the key sections and content, making it clean and modern.`;
                               }
                             }
                           }}
-                          placeholder="Add more details: specific features, color preferences..."
+                          placeholder={
+                            currentProjectType === ProjectType.FLUTTER_MOBILE 
+                              ? "Add more details: screens, navigation, widgets, Material Design features..."
+                              : "Add more details: specific features, color preferences..."
+                          }
                           className="w-full px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all duration-200"
                         />
                       </div>
@@ -3007,6 +3013,26 @@ Focus on the key sections and content, making it clean and modern.`;
                   )}
               </form>
               
+              {/* Flutter-specific guidance */}
+              {currentProjectType === ProjectType.FLUTTER_MOBILE && (
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <div className="text-blue-600 text-lg">📱</div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                        Flutter App Development Tips
+                      </h4>
+                      <ul className="text-xs text-blue-700 space-y-1">
+                        <li>• Try: "Create a login screen with email and password fields"</li>
+                        <li>• Try: "Add bottom navigation with 3 tabs"</li>
+                        <li>• Try: "Build a todo list app with Material Design"</li>
+                        <li>• Try: "Add floating action button to home screen"</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Back to Project Selection */}
               <div className="mt-4 text-center">
                 <button
@@ -3058,16 +3084,35 @@ Focus on the key sections and content, making it clean and modern.`;
             className="h-8 w-auto"
           />
           
-          {/* Project Type Indicator */}
+          {/* Project Type Indicator with Switch */}
           {!showHomeScreen && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
-              <span className="text-lg">{getProjectConfig(currentProjectType).icon}</span>
-              <span className="text-sm font-medium text-gray-700">
-                {getProjectConfig(currentProjectType).name}
-              </span>
-              {isTransitioning && (
-                <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              )}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
+                <span className="text-lg">{getProjectConfig(currentProjectType).icon}</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {getProjectConfig(currentProjectType).name}
+                </span>
+                {isTransitioning && (
+                  <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                )}
+              </div>
+              
+              {/* Project Switch Button */}
+              <button
+                onClick={() => {
+                  const newType = currentProjectType === ProjectType.REACT_WEB 
+                    ? ProjectType.FLUTTER_MOBILE 
+                    : ProjectType.REACT_WEB;
+                  setProjectType(newType);
+                }}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                title={`Switch to ${currentProjectType === ProjectType.REACT_WEB ? 'Flutter Mobile' : 'React Web'}`}
+                disabled={isTransitioning}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </button>
             </div>
           )}
         </div>
@@ -3373,7 +3418,11 @@ Focus on the key sections and content, making it clean and modern.`;
             <div className="relative">
               <Textarea
                 className="min-h-[60px] pr-12 resize-y border-2 border-black focus:outline-none"
-                placeholder=""
+                placeholder={
+                  currentProjectType === ProjectType.FLUTTER_MOBILE 
+                    ? "Create a Flutter app... (e.g., 'login screen', 'add bottom navigation', 'create todo list')"
+                    : "Tell me what you want to create or modify..."
+                }
                 value={aiChatInput}
                 onChange={(e) => setAiChatInput(e.target.value)}
                 onKeyDown={(e) => {

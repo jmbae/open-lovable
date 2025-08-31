@@ -1,0 +1,80 @@
+class {{screen_name}} extends StatefulWidget {
+  const {{screen_name}}({super.key});
+
+  @override
+  State<{{screen_name}}> createState() => _{{screen_name}}State();
+}
+
+class _{{screen_name}}State extends State<{{screen_name}}> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      {{#has_app_bar}}
+      appBar: AppBar(
+        title: Text('{{screen_title}}'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        {{#has_actions}}
+        actions: [
+          {{#actions}}
+          {{action_widget}},
+          {{/actions}}
+        ],
+        {{/has_actions}}
+      ),
+      {{/has_app_bar}}
+      {{#has_drawer}}
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text(
+                'Menu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            {{#drawer_items}}
+            ListTile(
+              leading: Icon({{icon}}),
+              title: Text('{{title}}'),
+              onTap: () {
+                Navigator.pop(context);
+                {{on_tap}}
+              },
+            ),
+            {{/drawer_items}}
+          ],
+        ),
+      ),
+      {{/has_drawer}}
+      body: {{body_content}},
+      {{#has_floating_action_button}}
+      floatingActionButton: FloatingActionButton(
+        onPressed: {{fab_action}},
+        tooltip: '{{fab_tooltip}}',
+        child: Icon({{fab_icon}}),
+      ),
+      {{/has_floating_action_button}}
+      {{#has_bottom_navigation}}
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          {{#bottom_nav_items}}
+          BottomNavigationBarItem(
+            icon: Icon({{icon}}),
+            label: '{{label}}',
+          ),
+          {{/bottom_nav_items}}
+        ],
+        currentIndex: {{current_index}},
+        onTap: {{on_tap_handler}},
+      ),
+      {{/has_bottom_navigation}}
+    );
+  }
+}

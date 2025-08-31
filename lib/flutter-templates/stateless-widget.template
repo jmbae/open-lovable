@@ -1,0 +1,23 @@
+class {{widget_name}} extends StatelessWidget {
+  {{#constructor_params}}
+  final {{type}} {{name}};
+  {{/constructor_params}}
+  
+  const {{widget_name}}({
+    super.key,
+    {{#constructor_params}}
+    required this.{{name}},
+    {{/constructor_params}}
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return {{widget_body}};
+  }
+  
+  {{#custom_methods}}
+  {{method_signature}} {
+    {{method_body}}
+  }
+  {{/custom_methods}}
+}

@@ -10,6 +10,9 @@ import { executeSearchPlan, formatSearchResultsForAI, selectTargetFile } from '@
 import { FileManifest } from '@/types/file-manifest';
 import type { ConversationState, ConversationMessage, ConversationEdit } from '@/types/conversation';
 import { appConfig } from '@/config/app.config';
+import { ProjectType } from '@/types/project';
+import { FlutterCodeGenerator } from '@/lib/flutter-code-generator';
+import { FlutterWebBuilder } from '@/lib/flutter-web-builder';
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -74,11 +77,12 @@ declare global {
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false } = await request.json();
+    const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false, projectType } = await request.json();
     
     console.log('[generate-ai-code-stream] Received request:');
     console.log('[generate-ai-code-stream] - prompt:', prompt);
     console.log('[generate-ai-code-stream] - isEdit:', isEdit);
+    console.log('[generate-ai-code-stream] - projectType:', projectType);
     console.log('[generate-ai-code-stream] - context.sandboxId:', context?.sandboxId);
     console.log('[generate-ai-code-stream] - context.currentFiles:', context?.currentFiles ? Object.keys(context.currentFiles) : 'none');
     console.log('[generate-ai-code-stream] - currentFiles count:', context?.currentFiles ? Object.keys(context.currentFiles).length : 0);
@@ -550,8 +554,77 @@ Remember: You are a SURGEON making a precise incision, not an artist repainting 
           }
         }
         
-        // Build system prompt with conversation awareness
-        const systemPrompt = `You are an expert React developer with perfect memory of the conversation. You maintain context across messages and remember scraped websites, generated components, and applied code. Generate clean, modern React code for Vite applications.
+        // Detect if this is a Flutter project
+        const isFlutterProject = projectType === ProjectType.FLUTTER_MOBILE;
+        const flutterGenerator = new FlutterCodeGenerator();
+        
+        // Build system prompt with conversation awareness and project type detection
+        const systemPrompt = isFlutterProject ? 
+          `You are an expert Flutter developer with perfect knowledge of Dart and Flutter framework. You maintain context across messages and remember project structure, components, and code. Generate clean, modern Flutter/Dart code following Material Design 3 principles.
+
+FLUTTER DEVELOPMENT GUIDELINES:
+1. **Use proper Flutter widget hierarchies** - Scaffold > AppBar/Body/FloatingActionButton pattern
+2. **Apply const constructors** - Use const wherever possible for performance
+3. **Follow Material Design 3** - Use ColorScheme, ThemeData.useMaterial3: true
+4. **Implement proper state management** - StatefulWidget for local state, Provider/Riverpod for global state
+5. **Use descriptive variable names** - Follow Dart naming conventions (camelCase)
+6. **Add documentation comments** - /// for public APIs and complex logic
+
+DART SYNTAX REQUIREMENTS:
+- Use proper Dart syntax with correct indentation (2 spaces)
+- Import packages at the top: import 'package:flutter/material.dart';
+- Use super.key for widget constructors
+- Handle nullable types properly with ? and !
+- Use proper async/await patterns for asynchronous operations
+
+FLUTTER WIDGET PATTERNS:
+- StatelessWidget for static UI components
+- StatefulWidget for interactive components with state
+- Proper build method structure returning Widget
+- Use of context parameter for accessing theme and navigation
+- Scaffold as the main page structure with AppBar, Body, etc.
+
+COMMON FLUTTER WIDGETS TO USE:
+- Text(), Icon(), Image(), Container(), Column(), Row()
+- ListView(), GridView(), Stack(), Positioned()
+- ElevatedButton(), TextButton(), IconButton()
+- TextField(), DropdownButton(), Checkbox(), Switch()
+- AppBar(), BottomNavigationBar(), Drawer(), FloatingActionButton()
+
+When generating Flutter code, always:
+1. Start with proper imports
+2. Create well-structured widget classes
+3. Use const constructors where possible
+4. Follow Flutter/Dart naming conventions
+5. Include proper error handling
+6. Apply Material Design principles
+
+Example Flutter widget structure:
+\`\`\`dart
+import 'package:flutter/material.dart';
+
+class MyWidget extends StatelessWidget {
+  const MyWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('App Title'),
+      ),
+      body: const Center(
+        child: Text('Hello Flutter!'),
+      ),
+    );
+  }
+}
+\`\`\`
+
+PROJECT TYPE: Flutter Mobile App
+LANGUAGE: Dart
+FRAMEWORK: Flutter with Material Design 3` 
+        : 
+          `You are an expert React developer with perfect memory of the conversation. You maintain context across messages and remember scraped websites, generated components, and applied code. Generate clean, modern React code for Vite applications.
 ${conversationContext}
 
 🚨 CRITICAL RULES - YOUR MOST IMPORTANT INSTRUCTIONS:
@@ -1664,6 +1737,61 @@ Provide the complete file content without any truncation. Include all necessary 
           packagesToInstall: packagesToInstall.length > 0 ? packagesToInstall : undefined,
           warnings: truncationWarnings.length > 0 ? truncationWarnings : undefined
         });
+        
+        // Auto-build Flutter web preview if this is a Flutter project
+        if (isFlutterProject && !isEdit && files.length > 0) {
+          console.log('[generate-ai-code-stream] Auto-building Flutter web preview...');
+          
+          try {
+            await sendProgress({
+              type: 'status',
+              message: '🔨 Building Flutter web preview...'
+            });
+            
+            // Determine project path (usually sandbox directory)
+            const sandboxId = context?.sandboxId || 'temp';
+            const flutterProjectPath = `/tmp/flutter_${sandboxId}`;
+            
+            // Build and serve Flutter web app
+            const buildResult = await FlutterWebBuilder.buildAndServe(
+              flutterProjectPath,
+              projectName,
+              {
+                buildMode: 'debug',
+                enableHotReload: true
+              }
+            );
+            
+            if (buildResult.success) {
+              const previewUrl = process.env.NODE_ENV === 'production' 
+                ? `https://${sandboxId}-8080.e2b.dev`
+                : buildResult.serverUrl;
+                
+              await sendProgress({
+                type: 'flutter_preview',
+                previewUrl,
+                buildTime: buildResult.buildTime,
+                artifacts: buildResult.artifacts,
+                message: '✅ Flutter web preview ready!'
+              });
+              
+              console.log('[generate-ai-code-stream] Flutter preview built successfully:', previewUrl);
+            } else {
+              await sendProgress({
+                type: 'warning',
+                message: `Flutter web build failed: ${buildResult.error}`
+              });
+              
+              console.error('[generate-ai-code-stream] Flutter web build failed:', buildResult.error);
+            }
+          } catch (buildError) {
+            console.error('[generate-ai-code-stream] Flutter auto-build error:', buildError);
+            await sendProgress({
+              type: 'warning', 
+              message: 'Flutter web preview could not be auto-generated. You can build manually.'
+            });
+          }
+        }
         
         // Track edit in conversation history
         if (isEdit && editContext && global.conversationState) {
