@@ -30,7 +30,13 @@ const searchPlanSchema = z.object({
     'UPDATE_STYLE',
     'REFACTOR',
     'ADD_DEPENDENCY',
-    'REMOVE_ELEMENT'
+    'REMOVE_ELEMENT',
+    // Flutter specific types
+    'CREATE_FLUTTER_WIDGET',
+    'CREATE_FLUTTER_SCREEN',
+    'UPDATE_FLUTTER_WIDGET',
+    'ADD_FLUTTER_NAVIGATION',
+    'ADD_FLUTTER_PACKAGE'
   ]).describe('The type of edit being requested'),
   
   reasoning: z.string().describe('Explanation of the search strategy'),
@@ -39,7 +45,7 @@ const searchPlanSchema = z.object({
   
   regexPatterns: z.array(z.string()).optional().describe('Regex patterns for finding code structures (e.g., "className=[\\"\\\'].*header.*[\\"\\\']")'),
   
-  fileTypesToSearch: z.array(z.string()).default(['.jsx', '.tsx', '.js', '.ts']).describe('File extensions to search'),
+  fileTypesToSearch: z.array(z.string()).default(['.jsx', '.tsx', '.js', '.ts', '.dart']).describe('File extensions to search'),
   
   expectedMatches: z.number().min(1).max(10).default(1).describe('Expected number of matches (helps validate search worked)'),
   
@@ -119,11 +125,13 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'system',
-          content: `You are an expert at planning code searches. Your job is to create a search strategy to find the exact code that needs to be edited.
+          content: `You are an expert at planning code searches for both React and Flutter projects. Your job is to create a search strategy to find the exact code that needs to be edited.
 
 DO NOT GUESS which files to edit. Instead, provide specific search terms that will locate the code.
 
 SEARCH STRATEGY RULES:
+
+REACT/WEB PATTERNS:
 1. For text changes (e.g., "change 'Start Deploying' to 'Go Now'"):
    - Search for the EXACT text: "Start Deploying"
    
@@ -139,11 +147,33 @@ SEARCH STRATEGY RULES:
 4. For navigation/header issues:
    - Search for: "navigation", "nav", "Header", "navbar"
    - Look for Link components or href attributes
+
+FLUTTER/DART PATTERNS:
+1. For Flutter widgets (e.g., "create login widget", "build button widget"):
+   - Search for: "class", "Widget", "StatelessWidget", "StatefulWidget"
+   - Search for widget names: "LoginWidget", "ButtonWidget"
    
-5. Be SPECIFIC:
-   - Use exact capitalization for user-visible text
-   - Include multiple search terms for redundancy
-   - Add regex patterns for structural searches
+2. For Flutter screens (e.g., "create home screen", "build profile page"):
+   - Search for: "class", "Screen", "Page", "Scaffold"
+   - Search for navigation: "MaterialPageRoute", "Navigator"
+   
+3. For Flutter navigation (e.g., "add appbar", "bottom navigation"):
+   - Search for: "AppBar", "Scaffold", "BottomNavigationBar"
+   - Search for: "floatingActionButton", "drawer"
+   
+4. For Flutter packages (e.g., "add http package"):
+   - Search for: "pubspec.yaml", "dependencies"
+   - Search for: "flutter pub", "import 'package:"
+   
+5. For Flutter UI elements:
+   - Search for: "Container", "Column", "Row", "ListView"
+   - Search for: "ElevatedButton", "TextButton", "Card"
+
+GENERAL RULES:
+- Use exact capitalization for user-visible text
+- Include multiple search terms for redundancy
+- Add regex patterns for structural searches
+- Consider file extensions (.dart for Flutter, .jsx/.tsx for React)
 
 Current project structure for context:
 ${fileSummary}`

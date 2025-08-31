@@ -11,6 +11,73 @@ export function analyzeEditIntent(
   
   // Define intent patterns
   const patterns: IntentPattern[] = [
+    // Flutter specific patterns - check these first for higher priority
+    {
+      patterns: [
+        /create\s+(a\s+)?(\w+)\s+(widget|screen)/i,
+        /build\s+(a\s+)?(\w+)\s+(widget|screen)/i,
+        /make\s+(a\s+)?(\w+)\s+(widget|screen)/i,
+        /add\s+(a\s+)?new\s+(\w+)\s+(widget|screen)/i,
+        /implement\s+(a\s+)?(\w+)\s+(widget|screen)/i,
+      ],
+      type: EditType.CREATE_FLUTTER_WIDGET,
+      fileResolver: (p, m) => findFlutterInsertionPoints(p, m),
+    },
+    {
+      patterns: [
+        /create\s+(a\s+)?(\w+)\s+(screen|page)/i,
+        /build\s+(a\s+)?(\w+)\s+(screen|page)/i,
+        /make\s+(a\s+)?(\w+)\s+(screen|page)/i,
+        /new\s+(screen|page)/i,
+        /add\s+(a\s+)?new\s+(\w+\s+)?(screen|page)/i,
+        // Korean patterns (using Unicode range for Korean characters)
+        /([\uAC00-\uD7AF]+)\s*(화면|스크린|페이지)\s*(만들어|생성|추가)/i,
+        /(화면|스크린|페이지).*(만들어|생성|추가)/i,
+      ],
+      type: EditType.CREATE_FLUTTER_SCREEN,
+      fileResolver: (p, m) => findFlutterScreenInsertionPoints(p, m),
+    },
+    {
+      patterns: [
+        /update\s+(the\s+)?(\w+)\s+(widget)/i,
+        /change\s+(the\s+)?(\w+)\s+(widget)/i,
+        /modify\s+(the\s+)?(\w+)\s+(widget)/i,
+        /edit\s+(the\s+)?(\w+)\s+(widget)/i,
+      ],
+      type: EditType.UPDATE_FLUTTER_WIDGET,
+      fileResolver: (p, m) => findFlutterWidgetFiles(p, m),
+    },
+    {
+      patterns: [
+        /add\s+(a\s+)?app\s?bar/i,
+        /implement\s+app\s?bar/i,
+        /create\s+app\s?bar/i,
+        /add\s+(a\s+)?bottom\s+navigation/i,
+        /implement\s+bottom\s+navigation/i,
+        /add\s+(a\s+)?floating\s+action\s+button/i,
+        /add\s+(a\s+)?fab/i,
+        /implement\s+navigation/i,
+        /add\s+navigation/i,
+        /add\s+tab\s?bar/i,
+        /implement\s+tab\s?bar/i,
+      ],
+      type: EditType.ADD_FLUTTER_NAVIGATION,
+      fileResolver: (p, m) => findFlutterNavigationFiles(p, m),
+    },
+    {
+      patterns: [
+        /add\s+flutter\s+(\w+\s+)?(package|dependency)/i,
+        /install\s+flutter\s+(\w+\s+)?(package|dependency)/i,
+        /use\s+flutter\s+(package|library)/i,
+        /add\s+(\w+)\s+flutter\s+(package|library)/i,
+        /flutter\s+pub\s+add/i,
+        /add\s+(\w+)\s+(package|dependency)/i,
+        /install\s+(\w+)\s+(package|dependency)/i,
+      ],
+      type: EditType.ADD_FLUTTER_PACKAGE,
+      fileResolver: (p, m) => findFlutterPackageFiles(m),
+    },
+    // Existing React patterns
     {
       patterns: [
         /update\s+(the\s+)?(\w+)\s+(component|section|page)/i,
@@ -504,7 +571,204 @@ function generateDescription(
       return 'Rebuilding entire application';
     case EditType.ADD_DEPENDENCY:
       return 'Adding new dependency';
+    
+    // Flutter specific descriptions
+    case EditType.CREATE_FLUTTER_WIDGET:
+      return `Creating Flutter widget in: ${fileNames}`;
+    case EditType.CREATE_FLUTTER_SCREEN:
+      return `Creating Flutter screen in: ${fileNames}`;
+    case EditType.UPDATE_FLUTTER_WIDGET:
+      return `Updating Flutter widget in: ${fileNames}`;
+    case EditType.ADD_FLUTTER_NAVIGATION:
+      return `Adding Flutter navigation to: ${fileNames}`;
+    case EditType.ADD_FLUTTER_PACKAGE:
+      return `Adding Flutter package to: ${fileNames}`;
+      
     default:
       return `Editing: ${fileNames}`;
   }
+}
+
+/**
+ * Find where to insert new Flutter widgets
+ */
+function findFlutterInsertionPoints(prompt: string, manifest: FileManifest): string[] {
+  const files: string[] = [];
+  const lowerPrompt = prompt.toLowerCase();
+  
+  // Look for existing Flutter files to understand project structure
+  const flutterFiles = Object.keys(manifest.files).filter(path => 
+    path.endsWith('.dart') && 
+    (path.includes('lib/') || path.includes('widgets/'))
+  );
+  
+  if (flutterFiles.length > 0) {
+    // If Flutter files exist, add to the main app file or widgets directory
+    const mainFile = flutterFiles.find(f => f.includes('main.dart'));
+    if (mainFile) {
+      files.push(mainFile);
+    } else {
+      // Default to first Flutter file found
+      files.push(flutterFiles[0]);
+    }
+  } else {
+    // No Flutter files yet, use entry point as fallback
+    files.push(manifest.entryPoint);
+  }
+  
+  return files;
+}
+
+/**
+ * Find where to insert new Flutter screens
+ */
+function findFlutterScreenInsertionPoints(prompt: string, manifest: FileManifest): string[] {
+  const files: string[] = [];
+  
+  // Look for existing Flutter screen/page files
+  const screenFiles = Object.keys(manifest.files).filter(path => 
+    path.endsWith('.dart') && 
+    (path.includes('screens/') || path.includes('pages/') || path.includes('lib/'))
+  );
+  
+  // Find main app file for routing updates
+  const mainFile = screenFiles.find(f => f.includes('main.dart')) || 
+                  screenFiles.find(f => f.includes('app.dart'));
+  
+  if (mainFile) {
+    files.push(mainFile);
+  }
+  
+  // If no specific files found, use entry point
+  if (files.length === 0) {
+    files.push(manifest.entryPoint);
+  }
+  
+  return files;
+}
+
+/**
+ * Find existing Flutter widget files to update
+ */
+function findFlutterWidgetFiles(prompt: string, manifest: FileManifest): string[] {
+  const files: string[] = [];
+  const lowerPrompt = prompt.toLowerCase();
+  
+  // Extract widget names from prompt
+  const widgetWords = extractFlutterWidgetNames(prompt);
+  console.log('[findFlutterWidgetFiles] Extracted widget words:', widgetWords);
+  
+  // Look for matching Flutter files
+  for (const [path, fileInfo] of Object.entries(manifest.files)) {
+    if (!path.endsWith('.dart')) continue;
+    
+    const fileName = path.split('/').pop()?.toLowerCase() || '';
+    const widgetName = fileInfo.flutterInfo?.name?.toLowerCase();
+    
+    for (const word of widgetWords) {
+      if (fileName.includes(word.toLowerCase()) || widgetName?.includes(word.toLowerCase())) {
+        console.log(`[findFlutterWidgetFiles] Match found: word="${word}" in file="${path}"`);
+        files.push(path);
+        break;
+      }
+    }
+  }
+  
+  // If no specific widget found, look for common Flutter UI elements
+  if (files.length === 0) {
+    const flutterElements = ['button', 'card', 'list', 'container', 'column', 'row', 'scaffold'];
+    for (const element of flutterElements) {
+      if (lowerPrompt.includes(element)) {
+        for (const [path, fileInfo] of Object.entries(manifest.files)) {
+          if (!path.endsWith('.dart')) continue;
+          
+          const fileName = path.split('/').pop()?.toLowerCase() || '';
+          if (fileName.includes(element)) {
+            files.push(path);
+            console.log(`[findFlutterWidgetFiles] Flutter element match: element="${element}" in file="${path}"`);
+            return files;
+          }
+        }
+      }
+    }
+  }
+  
+  return files.length > 0 ? files : findFlutterInsertionPoints(prompt, manifest);
+}
+
+/**
+ * Find Flutter navigation-related files
+ */
+function findFlutterNavigationFiles(prompt: string, manifest: FileManifest): string[] {
+  const files: string[] = [];
+  
+  // Look for main app files that typically contain navigation
+  const navigationFiles = Object.keys(manifest.files).filter(path => 
+    path.endsWith('.dart') && 
+    (path.includes('main.dart') || 
+     path.includes('app.dart') ||
+     path.includes('home.dart') ||
+     path.includes('navigation'))
+  );
+  
+  files.push(...navigationFiles);
+  
+  // If no navigation files found, use main Flutter files
+  if (files.length === 0) {
+    return findFlutterInsertionPoints(prompt, manifest);
+  }
+  
+  return files;
+}
+
+/**
+ * Find Flutter package configuration files
+ */
+function findFlutterPackageFiles(manifest: FileManifest): string[] {
+  const files: string[] = [];
+  
+  // Look for pubspec.yaml file
+  for (const path of Object.keys(manifest.files)) {
+    if (path.endsWith('pubspec.yaml') || path.endsWith('pubspec.yml')) {
+      files.push(path);
+    }
+  }
+  
+  // If no pubspec found, create it at root level
+  if (files.length === 0) {
+    files.push('pubspec.yaml');
+  }
+  
+  return files;
+}
+
+/**
+ * Extract Flutter widget names from prompt
+ */
+function extractFlutterWidgetNames(prompt: string): string[] {
+  const words: string[] = [];
+  
+  // Remove common words but keep Flutter-related words
+  const cleanPrompt = prompt
+    .replace(/\b(the|a|an|in|on|to|from|update|change|modify|edit|fix|make|create|build|widget|screen)\b/gi, '')
+    .toLowerCase();
+  
+  // Extract potential widget names
+  const matches = cleanPrompt.match(/\b\w+\b/g) || [];
+  
+  for (const match of matches) {
+    if (match.length > 2) {
+      words.push(match);
+    }
+  }
+  
+  // Add common Flutter widget patterns
+  const flutterKeywords = ['appbar', 'scaffold', 'container', 'column', 'row', 'button', 'card', 'list', 'fab'];
+  for (const keyword of flutterKeywords) {
+    if (prompt.toLowerCase().includes(keyword)) {
+      words.push(keyword);
+    }
+  }
+  
+  return words;
 }

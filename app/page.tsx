@@ -22,6 +22,9 @@ import {
 } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
+import ProjectTypeSelector from '@/components/ProjectTypeSelector';
+import { useProject } from '@/contexts/ProjectContext';
+import { ProjectType, getProjectConfig } from '@/types/project';
 
 interface SandboxData {
   sandboxId: string;
@@ -43,6 +46,9 @@ interface ChatMessage {
 }
 
 export default function AISandboxPage() {
+  // Project context
+  const { currentProjectType, setProjectType, isTransitioning } = useProject();
+  
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
@@ -68,6 +74,7 @@ export default function AISandboxPage() {
   const [urlInput, setUrlInput] = useState('');
   const [urlStatus, setUrlStatus] = useState<string[]>([]);
   const [showHomeScreen, setShowHomeScreen] = useState(true);
+  const [showProjectSelector, setShowProjectSelector] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['app', 'src', 'src/components']));
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [homeScreenFading, setHomeScreenFading] = useState(false);
@@ -381,7 +388,9 @@ export default function AISandboxPage() {
       const response = await fetch('/api/create-ai-sandbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          projectType: currentProjectType
+        })
       });
       
       const data = await response.json();
@@ -2818,11 +2827,39 @@ Focus on the key sections and content, making it clean and modern.`;
                   }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                 >
-                  Re-imagine any website, in seconds.
+                  {showProjectSelector 
+                    ? "Build any app with AI, in seconds."
+                    : "Re-imagine any website, in seconds."}
                 </motion.p>
               </div>
               
-              <form onSubmit={handleHomeScreenSubmit} className="mt-5 max-w-3xl mx-auto">
+              {/* Project Type Selector or URL Form */}
+              {showProjectSelector ? (
+                <div className="mt-8">
+                  <ProjectTypeSelector
+                    selectedType={currentProjectType}
+                    onTypeChange={(type) => {
+                      setProjectType(type);
+                      setShowProjectSelector(false);
+                    }}
+                    className="animate-[fadeIn_0.8s_ease-out]"
+                  />
+                  
+                  {/* Back to URL mode for React projects */}
+                  {currentProjectType === ProjectType.REACT_WEB && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowProjectSelector(false)}
+                        className="text-sm text-gray-600 hover:text-gray-800 underline"
+                      >
+                        Or clone an existing website
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <form onSubmit={handleHomeScreenSubmit} className="mt-5 max-w-3xl mx-auto">
                 <div className="w-full relative group">
                   <input
                     type="text"
@@ -2970,6 +3007,18 @@ Focus on the key sections and content, making it clean and modern.`;
                   )}
               </form>
               
+              {/* Back to Project Selection */}
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowProjectSelector(true)}
+                  className="text-sm text-gray-600 hover:text-gray-800 underline"
+                >
+                  ← Back to project selection
+                </button>
+              </div>
+                </>
+              )}
+              
               {/* Model Selector */}
               <div className="mt-6 flex items-center justify-center animate-[fadeIn_1s_ease-out]">
                 <select
@@ -3008,6 +3057,19 @@ Focus on the key sections and content, making it clean and modern.`;
             alt="Firecrawl"
             className="h-8 w-auto"
           />
+          
+          {/* Project Type Indicator */}
+          {!showHomeScreen && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
+              <span className="text-lg">{getProjectConfig(currentProjectType).icon}</span>
+              <span className="text-sm font-medium text-gray-700">
+                {getProjectConfig(currentProjectType).name}
+              </span>
+              {isTransitioning && (
+                <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Model Selector - Left side */}

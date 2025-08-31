@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Sandbox } from '@e2b/code-interpreter';
 import type { SandboxState } from '@/types/sandbox';
+import { ProjectType, DEFAULT_PROJECT_TYPE, getProjectTypeFromString } from '@/types/project';
 import { appConfig } from '@/config/app.config';
 
 // Store active sandbox globally
@@ -11,11 +12,15 @@ declare global {
   var sandboxState: SandboxState;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   let sandbox: any = null;
 
   try {
-    console.log('[create-ai-sandbox] Creating base sandbox...');
+    // Parse request body to get project type
+    const body = await request.json().catch(() => ({}));
+    const projectType = getProjectTypeFromString(body.projectType) || DEFAULT_PROJECT_TYPE;
+    
+    console.log(`[create-ai-sandbox] Creating ${projectType} sandbox...`);
     
     // Kill existing sandbox if any
     if (global.activeSandbox) {
@@ -335,11 +340,28 @@ print('✓ Tailwind CSS should be loaded')
     
     console.log('[create-ai-sandbox] Sandbox ready at:', `https://${host}`);
     
+    // Store project type in global sandbox state
+    global.sandboxState = {
+      fileCache: {
+        files: {},
+        lastSync: Date.now(),
+        sandboxId,
+        projectType
+      },
+      sandbox: global.activeSandbox,
+      sandboxData: {
+        sandboxId,
+        url: `https://${host}`,
+        projectType
+      }
+    };
+    
     return NextResponse.json({
       success: true,
       sandboxId,
       url: `https://${host}`,
-      message: 'Sandbox created and Vite React app initialized'
+      projectType,
+      message: `${projectType} sandbox created and initialized`
     });
 
   } catch (error) {
