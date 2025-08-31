@@ -37,6 +37,6 @@ export default {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   // Mock CSS modules and static assets
   transformIgnorePatterns: [
-    'node_modules/(?!(lucide-react)/)'
+    'node_modules/(?!(lucide-react|@octokit)/)'
   ]
 };
